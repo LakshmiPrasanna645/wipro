@@ -1,0 +1,184 @@
+
+1 Write a shell script that takes a directory as input and creates a backup of all files in that directory. The script should compress the files and store the backup in a specified location with a timestamp.
+
+
+#!/bin/bash
+
+# Set the backup location and timestamp format
+BACKUP_LOCATION="/path/to/backups"
+TIMESTAMP=$(date +"%Y-%m-%d-%H-%M-%S")
+
+# Check if the directory is provided as an argument
+if [ $# -ne 1 ]; then
+  echo "Usage: $0 <directory>"
+  exit 1
+fi
+
+# Get the directory from the argument
+DIRECTORY=$1
+
+# Check if the directory exists
+if [! -d "$DIRECTORY" ]; then
+  echo "Directory '$DIRECTORY' not found."
+  exit 1
+fi
+
+# Create the backup file name
+BACKUP_FILE="backup-$TIMESTAMP.tar.gz"
+
+# Create the backup
+tar -czf "$BACKUP_LOCATION/$BACKUP_FILE" "$DIRECTORY"
+
+echo "Backup created: $BACKUP_LOCATION/$BACKUP_FILE"
+
+
+
+
+2 Create a shell script that monitors system resources such as CPU usage, memory usage, and disk space. The script should log the resource usage periodically and alert if any resource exceeds a specified threshold
+
+#!/bin/bash
+
+# Set the log file and threshold values
+LOG_FILE="/var/log/resource_monitor.log"
+CPU_THRESHOLD=80
+MEM_THRESHOLD=90
+DISK_THRESHOLD=90
+
+# Set the interval for logging and checking resources (in seconds)
+INTERVAL=60
+
+while true
+do
+  # Get the current date and time
+  DATE=$(date +"%Y-%m-%d %H:%M:%S")
+
+  # Get the CPU usage
+  CPU_USAGE=$(top -b -n 1 | grep "Cpu(s)" | awk '{print $2}' | sed 's/%//')
+
+  # Get the memory usage
+  MEM_USAGE=$(free -m | awk '/Mem/ {print $3/$2 * 100}' | sed 's/%//')
+
+  # Get the disk usage
+  DISK_USAGE=$(df -h --output=pcent / | awk '{print $1}' | sed 's/%//')
+
+  # Log the resource usage
+  echo "$DATE - CPU: $CPU_USAGE%, MEM: $MEM_USAGE%, DISK: $DISK_USAGE%" >> $LOG_FILE
+
+  # Check if any resource exceeds the threshold
+  if [ $CPU_USAGE -gt $CPU_THRESHOLD ]; then
+    echo "CPU usage exceeded threshold: $CPU_USAGE% > $CPU_THRESHOLD%" | mail -s "CPU Usage Alert" your_email@example.com
+  fi
+
+  if [ $MEM_USAGE -gt $MEM_THRESHOLD ]; then
+    echo "Memory usage exceeded threshold: $MEM_USAGE% > $MEM_THRESHOLD%" | mail -s "Memory Usage Alert" your_email@example.com
+  fi
+
+  if [ $DISK_USAGE -gt $DISK_THRESHOLD ]; then
+    echo "Disk usage exceeded threshold: $DISK_USAGE% > $DISK_THRESHOLD%" | mail -s "Disk Usage Alert" your_email@example.com
+  fi
+
+  # Sleep for the specified interval
+  sleep $INTERVAL
+done
+
+
+
+
+3 Write a shell script that automates the backup and restoration of a MySQL or PostgreSQLdatabase. The script should take database credentials and backup location as input and provide options for both backup and restoration
+
+#!/bin/bash
+
+# Function to backup a MySQL database
+backup_mysql() {
+  local DB_HOST=$1
+  local DB_USER=$2
+  local DB_PASSWORD=$3
+  local DB_NAME=$4
+  local BACKUP_LOCATION=$5
+
+  mysqldump -h $DB_HOST -u $DB_USER -p$DB_PASSWORD $DB_NAME > $BACKUP_LOCATION/$DB_NAME-$(date +"%Y-%m-%d-%H-%M-%S").sql
+  echo "Backup of $DB_NAME completed successfully!"
+}
+
+# Function to restore a MySQL database
+restore_mysql() {
+  local DB_HOST=$1
+  local DB_USER=$2
+  local DB_PASSWORD=$3
+  local DB_NAME=$4
+  local BACKUP_FILE=$5
+
+  mysql -h $DB_HOST -u $DB_USER -p$DB_PASSWORD $DB_NAME < $BACKUP_FILE
+  echo "Restore of $DB_NAME completed successfully!"
+}
+
+# Function to backup a PostgreSQL database
+backup_pgsql() {
+  local DB_HOST=$1
+  local DB_USER=$2
+  local DB_PASSWORD=$3
+  local DB_NAME=$4
+  local BACKUP_LOCATION=$5
+
+  pg_dump -h $DB_HOST -U $DB_USER -W $DB_PASSWORD $DB_NAME > $BACKUP_LOCATION/$DB_NAME-$(date +"%Y-%m-%d-%H-%M-%S").sql
+  echo "Backup of $DB_NAME completed successfully!"
+}
+
+# Function to restore a PostgreSQL database
+restore_pgsql() {
+  local DB_HOST=$1
+  local DB_USER=$2
+  local DB_PASSWORD=$3
+  local DB_NAME=$4
+  local BACKUP_FILE=$5
+
+  psql -h $DB_HOST -U $DB_USER -W $DB_PASSWORD $DB_NAME < $BACKUP_FILE
+  echo "Restore of $DB_NAME completed successfully!"
+}
+
+# Main script
+while getopts ":d:b:r:h" opt; do
+  case $opt in
+    d) DB_TYPE=$OPTARG;;
+    b) BACKUP_LOCATION=$OPTARG;;
+    r) RESTORE_FILE=$OPTARG;;
+    h) echo "Usage: $0 -d <mysql|pgsql> -b <backup_location> [-r <restore_file>]"; exit 0;;
+    \?) echo "Invalid option: -$OPTARG"; exit 1;;
+  esac
+done
+
+if [ -z "$DB_TYPE" ]; then
+  echo "Error: Database type not specified. Use -d mysql or -d pgsql."
+  exit 1
+fi
+
+if [ -z "$BACKUP_LOCATION" ]; then
+  echo "Error: Backup location not specified. Use -b <backup_location>."
+  exit 1
+fi
+
+if [ "$DB_TYPE" = "mysql" ]; then
+  read -p "Enter MySQL host: " DB_HOST
+  read -p "Enter MySQL user: " DB_USER
+  read -p "Enter MySQL password: " DB_PASSWORD
+  read -p "Enter MySQL database name: " DB_NAME
+
+  if [ -n "$RESTORE_FILE" ]; then
+    restore_mysql $DB_HOST $DB_USER $DB_PASSWORD $DB_NAME $RESTORE_FILE
+  else
+    backup_mysql $DB_HOST $DB_USER $DB_PASSWORD $DB_NAME $BACKUP_LOCATION
+  fi
+
+elif [ "$DB_TYPE" = "pgsql" ]; then
+  read -p "Enter PostgreSQL host: " DB_HOST
+  read -p "Enter PostgreSQL user: " DB_USER
+  read -p "Enter PostgreSQL password: " DB_PASSWORD
+  read -p "Enter PostgreSQL database name: " DB_NAME
+
+  if [ -n "$RESTORE_FILE" ]; then
+    restore_pgsql $DB_HOST $DB_USER $DB_PASSWORD $DB_NAME $RESTORE_FILE
+  else
+    backup_pgsql $DB_HOST $DB_USER $DB_PASSWORD $DB_NAME $BACKUP_LOCATION
+  fi
+
+fi
